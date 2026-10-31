@@ -211,7 +211,7 @@ def parse_formatting_instructions(text_content):
     
     النص المدخل:
     "{text_content}"
-    
+    """
     أخرج الناتج كـ JSON Array يحتوي على مصفوفة من العناصر بالتنسيق التالي حصراً:
     [
         {{
@@ -221,7 +221,7 @@ def parse_formatting_instructions(text_content):
             "size": 14
         }}
     ]
-    """
+    
 
     try:
         response = client.models.generate_content(
