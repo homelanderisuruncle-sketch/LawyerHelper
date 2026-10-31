@@ -16,7 +16,7 @@ from docx.shared import Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 # إعداد التسجيل لمتابعة الأخطاء واستهلاك التوكنز
-logging.basicConfig(format= %(asctime)s - %(name)s - %(levelname)s - %(message)s , level=logging.INFO)
+logging.basicConfig(format= '%(asctime)s - %(name)s - %(levelname)s - %(message)s' , level=logging.INFO)
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
@@ -73,13 +73,13 @@ async def process_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         response = client.models.generate_content(
-            model= gemini-2.5-flash ,
+            model= 'gemini-2.5-flash' ,
             contents=[image, prompt],
             config=config
         )
 
         # طباعة استهلاك التوكنز في السجلات (Logs)
-        if hasattr(response,  usage_metadata ) and response.usage_metadata:
+        if hasattr(response,  'usage_metadata' ) and response.usage_metadata:
             logging.info(f"📊 [Agent 1 Tokens] Input: {response.usage_metadata.prompt_token_count} | Output: {response.usage_metadata.candidates_token_count}")
 
         extracted_text = response.text.strip()
@@ -116,23 +116,33 @@ async def start_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return WAITING_INFO
 
 def parse_formatting_instructions(text_content):
-    """تحليل أوامر الهاشتاج #أمر# وتحويلها إلى عناصر برمجية مع تتبع التوكنز"""
+    """
+    استخدام نموذج gemini-2.5-pro بأعلى دقة لتحليل النصوص واستخراج أوامر التنسيق بين الهاشتاجات #أمر#
+    """
+    # إعدادات أقصى دقة ومنع التخمين
     config = types.GenerateContentConfig(
-        temperature=0.1,
-        max_output_tokens=1500
+        temperature=0.0,
+        max_output_tokens=4000,
+        response_mime_type="application/json"  # إجبار الموديل على إخراج JSON نقي 100%
     )
 
     prompt = f"""
-    أنت وكيل تنسيق مستندات Word ذكي.
-    اقرأ النص التالي، وإذا وجدت عبارات محاطة بـ #أمر وتنسيق معين#، قم بتحليل المطلوب وتطبيقه على النص الموجود داخل الهاشتاج فقط.
+    أنت خبير قانوني ومساعد دقيق جداً في تنسيق مستندات Microsoft Word.
     
-    النص المطلوب تحليله:
+    المطلوب منك:
+    1. اقرأ النص التالي بعناية.
+    2. ابحث عن أي كلمات أو عبارات محاطة بعلامات الهاشتاج مثل #أمر أو تنسيق# أو ##أمر##.
+    3. استخرج أمر التنسيق المطلوب (مثل: أحمر، أزرق، أخضر، عريض، كبر الخط، خط صغير).
+    4. طبّق التنسيق على النص المكتوب داخل علامات الهاشتاج فقط.
+    5. أزل علامات الهاشتاج والأوامر من النص النهائي الصافي.
+    
+    النص المدخل:
     "{text_content}"
     
-    أخرج الناتج كـ JSON Array يضم قطع النص والتنسيقات بالصيغة التالية حصراً دون أي كلام إضافي:
+    أخرج الناتج كـ JSON Array يحتوي على مصفوفة من العناصر بالتنسيق التالي حصراً:
     [
         {{
-            "text": "النص الصافي بدون علامات الهاشتاج وبدون كلمات الأمر",
+            "text": "النص الصافي بعد حذف علامات الهاشتاج وكلمات الأمر",
             "bold": true/false,
             "color": "red/blue/green/black",
             "size": 14
@@ -142,27 +152,30 @@ def parse_formatting_instructions(text_content):
 
     try:
         response = client.models.generate_content(
-            model= gemini-2.5-flash ,
+            model= 'gemini-2.5-pro' ,  # استخدام الفئة المحترفة والأعلى دقة
             contents=[prompt],
             config=config
         )
 
-        if hasattr(response,  usage_metadata ) and response.usage_metadata:
+        if hasattr(response,  'usage_metadata' ) and response.usage_metadata:
             logging.info(f"📊 [Agent 2 Tokens] Input: {response.usage_metadata.prompt_token_count} | Output: {response.usage_metadata.candidates_token_count}")
 
-        clean_json = response.text.replace("```json", "").replace("```", "").strip()
-        return json.loads(clean_json)
+        return json.loads(response.text.strip())
     except Exception as e:
         logging.error(f"Error in formatting parsing: {e}")
         return [{"text": text_content, "bold": False, "color": "black", "size": 13}]
 
+
 def generate_word_from_template(info_parts, texts_list):
-    """دمج النصوص والأوامر داخل template.docx"""
+    """دمج البيانات المستخرجة بدقة داخل القالب template.docx"""
     doc = DocxTemplate("template.docx")
     subdoc = doc.new_subdoc()
 
+    # معالجة كل نص مضاف وتطبيق التنسيقات عليه
     for idx, text in enumerate(texts_list, 1):
-        subdoc.add_heading(f"المستند رقم ({idx}):", level=2)
+        if len(texts_list) > 1:
+            subdoc.add_heading(f"المستند رقم ({idx}):", level=2)
+            
         p = subdoc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
 
@@ -170,13 +183,18 @@ def generate_word_from_template(info_parts, texts_list):
 
         for item in formatted_runs:
             run = p.add_run(item.get("text", ""))
+            
+            # تطبيق العريض (Bold)
             if item.get("bold"):
                 run.bold = True
+                
+            # تطبيق حجم الخط
             if item.get("size"):
                 run.font.size = Pt(int(item.get("size")))
             else:
                 run.font.size = Pt(13)
 
+            # تطبيق الألوان
             color = str(item.get("color", "")).lower()
             if "red" in color or "أحمر" in color:
                 run.font.color.rgb = RGBColor(200, 0, 0)
@@ -184,19 +202,23 @@ def generate_word_from_template(info_parts, texts_list):
                 run.font.color.rgb = RGBColor(0, 102, 204)
             elif "green" in color or "أخضر" in color:
                 run.font.color.rgb = RGBColor(0, 153, 76)
+            else:
+                run.font.color.rgb = RGBColor(0, 0, 0)
 
+    # استخراج البيانات المطلوبة للقالب
     court = info_parts[0] if len(info_parts) > 0 else "غير محدد"
-    judge = info_parts[1] if len(info_parts) > 1 else "غير محدد"
+    subject = info_parts[1] if len(info_parts) > 1 else "طلب تقديم مستندات"
     plaintiff = info_parts[2] if len(info_parts) > 2 else "غير محدد"
     defendant = info_parts[3] if len(info_parts) > 3 else "غير محدد"
-    today_date = datetime.now().strftime("%Y/%m/%d")
+    judge = info_parts[4] if len(info_parts) > 4 else "غير محدد"
 
+    # ربط المتغيرات مع خانات الـ Jinja2 المضافة بالـ template.docx
     context_data = {
         'court' : court,
-        'judge' : judge,
+        'subject' : subject,
         'plaintiff' : plaintiff,
         'defendant' : defendant,
-        'date' : today_date,
+        'judge' : judge,
         'body_content' : subdoc
     }
 
