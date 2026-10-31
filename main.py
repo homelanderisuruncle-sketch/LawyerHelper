@@ -15,6 +15,13 @@ from docxtpl import DocxTemplate
 from docx.shared import Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
+import os
+
+# إعدادات البروكسي الخاصة بـ PythonAnywhere للحسابات المجانية
+proxy_url = "http://proxy.server:3128"
+os.environ["HTTP_PROXY"] = proxy_url
+os.environ["HTTPS_PROXY"] = proxy_url
+
 # إعداد التسجيل لمتابعة الأخطاء واستهلاك التوكنز
 logging.basicConfig(format= '%(asctime)s - %(name)s - %(levelname)s - %(message)s' , level=logging.INFO)
 
@@ -282,7 +289,15 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 def main():
-    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    app = (
+        ApplicationBuilder()
+        .token(TELEGRAM_TOKEN)
+        .get_updates_http_version("1.1")
+        .http_version("1.1")
+        .proxy_url("http://proxy.server:3128")
+        .get_updates_proxy_url("http://proxy.server:3128")
+        .build()
+    )
 
     ocr_handler = ConversationHandler(
         entry_points=[MessageHandler(filters.Regex("^📝 استخراج النص$"), start_ocr)],
@@ -302,8 +317,7 @@ def main():
     app.add_handler(MessageHandler(filters.Regex("^💼 حقيبتك$"), view_bag))
     app.add_handler(MessageHandler(filters.Regex("^❌ إنهاء الجلسة$"), clear_session))
 
-    print("البوت يعمل بنجاح مع القالب والدقة المحسنة وتتبع التوكنز...")
+    print("البوت يعمل بنجاح...")
     app.run_polling()
-
 if __name__ == "__main__":
     main()
