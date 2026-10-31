@@ -17,7 +17,6 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 import os
 
-# إعدادات البروكسي الخاصة بـ PythonAnywhere للحسابات المجانية
 proxy_url = "http://proxy.server:3128"
 os.environ["HTTP_PROXY"] = proxy_url
 os.environ["HTTPS_PROXY"] = proxy_url
@@ -292,10 +291,6 @@ def main():
     app = (
         ApplicationBuilder()
         .token(TELEGRAM_TOKEN)
-        .get_updates_http_version("1.1")
-        .http_version("1.1")
-        .proxy_url("http://proxy.server:3128")
-        .get_updates_proxy_url("http://proxy.server:3128")
         .build()
     )
 
