@@ -231,7 +231,7 @@ def generate_word_from_template(info_parts, texts_list):
 
 async def process_word_creation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     info_text = update.message.text
-    info_parts = [i.strip() for i in info_text.split( , )]
+    info_parts = [i.strip() for i in info_text.split(' , ')]
     texts_list = context.user_data.get("texts", [])
 
     await update.message.reply_text("جاري دمج النص مع القالب وتطبيق الأوامر... ⏳")
