@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: qada-telegram-bot
+    name: lawyerhelper
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
@@ -16,7 +16,7 @@ services:
       - key: WEBHOOK_SECRET
         generateValue: true
       - key: GEMINI_MODEL
-        value: gemini-3.7-flash
+        value: gemini-3.8-flash
       - key: DAILY_LIMIT
         value: "8"
       - key: MAX_FILE_MB
